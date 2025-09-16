@@ -1,13 +1,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client';
 
-export const dynamic = "force-dynamic";
+const prisma = new PrismaClient();
 
-// Validate student access and check capacity
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { studentName, assignmentCode } = await req.json();
+    const { studentName, assignmentCode } = await request.json();
 
     if (!studentName || !assignmentCode) {
       return NextResponse.json(
@@ -16,11 +15,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate student name format
-    const nameRegex = /^[a-zA-Z\s]{2,50}$/;
-    if (!nameRegex.test(studentName.trim())) {
+    // Validate student name
+    if (studentName.length < 2 || studentName.length > 50) {
       return NextResponse.json(
-        { error: 'Invalid student name format. Use only letters and spaces (2-50 characters)' },
+        { error: 'Student name must be between 2-50 characters' },
+        { status: 400 }
+      );
+    }
+
+    if (!/^[a-zA-Z\s]+$/.test(studentName)) {
+      return NextResponse.json(
+        { error: 'Student name can only contain letters and spaces' },
         { status: 400 }
       );
     }
@@ -43,66 +48,78 @@ export async function POST(req: NextRequest) {
     if (assignment.status !== 'active') {
       return NextResponse.json(
         { error: 'This assignment is not currently available.' },
-        { status: 400 }
+        { status: 403 }
       );
     }
 
-    // Check if assignment has expired
-    if (assignment.deadline && assignment.deadline < new Date()) {
-      return NextResponse.json(
-        { error: 'This assignment has passed its deadline.' },
-        { status: 400 }
+    // Check capacity limit
+    const currentStudentCount = assignment.student_work.length;
+    if (currentStudentCount >= assignment.max_students) {
+      // Check if this student already exists
+      const existingWork = assignment.student_work.find(
+        work => work.student_name.toLowerCase() === studentName.toLowerCase()
       );
+      
+      if (!existingWork) {
+        return NextResponse.json(
+          { error: 'This assignment has reached its maximum capacity of 30 students.' },
+          { status: 403 }
+        );
+      }
     }
 
-    // Check existing student work
-    const existingWork = await prisma.studentWork.findUnique({
+    // Find or create student work
+    let studentWork = await prisma.studentWork.findUnique({
       where: {
-        assignment_id_student_name_status: {
+        assignment_id_student_name: {
           assignment_id: assignment.id,
-          student_name: studentName.trim(),
-          status: 'final'
+          student_name: studentName
         }
       }
     });
 
-    if (existingWork) {
-      return NextResponse.json(
-        { error: 'You have already submitted this assignment.' },
-        { status: 400 }
-      );
-    }
-
-    // Check capacity - count unique student names (excluding those who already submitted final)
-    const uniqueStudents = new Set(
-      assignment.student_work
-        .filter(work => work.status === 'draft' || work.status === 'final')
-        .map(work => work.student_name)
-    );
-
-    const currentStudentCount = uniqueStudents.size;
-    const isExistingStudent = uniqueStudents.has(studentName.trim());
-
-    if (!isExistingStudent && currentStudentCount >= assignment.max_students) {
-      return NextResponse.json(
-        { 
-          error: 'This assignment has reached its maximum capacity of 30 students. Please contact your teacher for alternative arrangements.',
-          atCapacity: true
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check for existing draft
-    const existingDraft = await prisma.studentWork.findUnique({
-      where: {
-        assignment_id_student_name_status: {
+    let isReturning = false;
+    if (!studentWork) {
+      // Create new student work entry
+      studentWork = await prisma.studentWork.create({
+        data: {
           assignment_id: assignment.id,
-          student_name: studentName.trim(),
+          student_name: studentName,
+          content: '',
+          word_count: 0,
           status: 'draft'
         }
+      });
+
+      // Update assignment student count
+      await prisma.assignment.update({
+        where: { id: assignment.id },
+        data: { student_count: currentStudentCount + 1 }
+      });
+    } else {
+      isReturning = true;
+      
+      // Check if already submitted
+      if (studentWork.status === 'submitted') {
+        return NextResponse.json({
+          assignment: {
+            id: assignment.id,
+            title: assignment.title,
+            content: assignment.content,
+            instructions: assignment.instructions,
+          },
+          studentWork: {
+            id: studentWork.id,
+            content: studentWork.content,
+            status: studentWork.status,
+            submitted_at: studentWork.submitted_at,
+            word_count: studentWork.word_count,
+          },
+          isReturning,
+          isSubmitted: true,
+        });
       }
-    });
+    }
 
     return NextResponse.json({
       assignment: {
@@ -110,18 +127,19 @@ export async function POST(req: NextRequest) {
         title: assignment.title,
         content: assignment.content,
         instructions: assignment.instructions,
-        deadline: assignment.deadline
       },
-      existingDraft: existingDraft ? {
-        content: existingDraft.content,
-        lastSaved: existingDraft.last_saved_at,
-        wordCount: existingDraft.word_count
-      } : null,
-      studentCount: currentStudentCount,
-      maxStudents: assignment.max_students
+      studentWork: {
+        id: studentWork.id,
+        content: studentWork.content,
+        status: studentWork.status,
+        word_count: studentWork.word_count,
+      },
+      isReturning,
+      isSubmitted: false,
     });
+
   } catch (error) {
-    console.error('Error validating student access:', error);
+    console.error('Student access error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

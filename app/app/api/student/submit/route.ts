@@ -1,105 +1,78 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { countWords } from '@/lib/utils';
+import { PrismaClient } from '@prisma/client';
 
-export const dynamic = "force-dynamic";
+const prisma = new PrismaClient();
 
-// Submit final assignment
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { assignmentId, studentName, content } = await req.json();
+    const { studentWorkId, content } = await request.json();
 
-    if (!assignmentId || !studentName || !content?.trim()) {
+    if (!studentWorkId || content === undefined) {
       return NextResponse.json(
-        { error: 'Assignment ID, student name, and content are required' },
+        { error: 'Student work ID and content are required' },
         { status: 400 }
       );
     }
 
-    // Verify assignment is active
-    const assignment = await prisma.assignment.findUnique({
-      where: { id: assignmentId }
+    // Find student work
+    const studentWork = await prisma.studentWork.findUnique({
+      where: { id: studentWorkId },
+      include: { assignment: true }
     });
 
-    if (!assignment || assignment.status !== 'active') {
+    if (!studentWork) {
       return NextResponse.json(
-        { error: 'Assignment is not available for submission' },
-        { status: 400 }
+        { error: 'Student work not found' },
+        { status: 404 }
       );
     }
 
-    // Check deadline
-    if (assignment.deadline && assignment.deadline < new Date()) {
+    // Check if assignment is still active
+    if (studentWork.assignment.status !== 'active') {
       return NextResponse.json(
-        { error: 'Assignment deadline has passed' },
-        { status: 400 }
+        { error: 'Assignment is no longer active' },
+        { status: 403 }
       );
     }
 
     // Check if already submitted
-    const existingFinal = await prisma.studentWork.findUnique({
-      where: {
-        assignment_id_student_name_status: {
-          assignment_id: assignmentId,
-          student_name: studentName.trim(),
-          status: 'final'
-        }
-      }
-    });
-
-    if (existingFinal) {
+    if (studentWork.status === 'submitted') {
       return NextResponse.json(
-        { error: 'Assignment already submitted' },
-        { status: 400 }
+        { error: 'Work has already been submitted' },
+        { status: 403 }
       );
     }
 
-    const wordCount = countWords(content);
-    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '';
+    // Count words
+    const wordCount = content.trim().split(/\s+/).filter((word: string) => word.length > 0).length;
 
-    // Create final submission
-    const submission = await prisma.studentWork.create({
+    // Update student work to submitted status
+    const submittedWork = await prisma.studentWork.update({
+      where: { id: studentWorkId },
       data: {
-        assignment_id: assignmentId,
-        student_name: studentName.trim(),
-        content: content.trim(),
+        content: content,
         word_count: wordCount,
-        status: 'final',
+        status: 'submitted',
         submitted_at: new Date(),
-        ip_address: clientIp
+        last_saved_at: new Date(),
       }
-    });
-
-    // Delete draft if exists
-    await prisma.studentWork.deleteMany({
-      where: {
-        assignment_id: assignmentId,
-        student_name: studentName.trim(),
-        status: 'draft'
-      }
-    });
-
-    // Update assignment student count
-    const uniqueStudents = await prisma.studentWork.findMany({
-      where: { assignment_id: assignmentId },
-      distinct: ['student_name'],
-      select: { student_name: true }
-    });
-
-    await prisma.assignment.update({
-      where: { id: assignmentId },
-      data: { student_count: uniqueStudents.length }
     });
 
     return NextResponse.json({
       success: true,
-      submittedAt: submission.submitted_at,
-      wordCount: wordCount,
-      submissionId: submission.id
+      studentWork: {
+        id: submittedWork.id,
+        content: submittedWork.content,
+        word_count: submittedWork.word_count,
+        status: submittedWork.status,
+        submitted_at: submittedWork.submitted_at,
+      },
+      message: 'Assignment submitted successfully!'
     });
+
   } catch (error) {
-    console.error('Error submitting assignment:', error);
+    console.error('Submit assignment error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

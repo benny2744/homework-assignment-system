@@ -1,13 +1,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+import { validateTeacher } from '@/lib/auth';
+import { createSession } from '@/lib/session';
 
-export const dynamic = "force-dynamic";
-
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await req.json();
+    const { username, password } = await request.json();
 
     if (!username || !password) {
       return NextResponse.json(
@@ -16,65 +14,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { username }
-    });
-
-    if (!user) {
+    const teacher = await validateTeacher(username, password);
+    
+    if (!teacher) {
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { error: 'Invalid credentials or account is locked' },
         { status: 401 }
       );
     }
 
-    // Check if account is locked
-    if (user.locked_until && user.locked_until > new Date()) {
-      return NextResponse.json(
-        { error: 'Account is temporarily locked' },
-        { status: 401 }
-      );
-    }
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      // Increment failed attempts
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          failed_attempts: user.failed_attempts + 1,
-          locked_until: user.failed_attempts >= 4 
-            ? new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
-            : null
-        }
-      });
-
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
-    }
-
-    // Reset failed attempts and update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        failed_attempts: 0,
-        locked_until: null,
-        last_login: new Date(),
+    const sessionToken = createSession(teacher);
+    
+    const response = NextResponse.json({
+      success: true,
+      teacher: {
+        id: teacher.id,
+        username: teacher.username,
+        active_sessions_count: teacher.active_sessions_count,
       }
     });
 
-    return NextResponse.json({
-      message: 'Login successful',
-      user: {
-        id: user.id,
-        username: user.username,
-      }
+    response.cookies.set('session-token', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7200, // 2 hours
     });
 
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

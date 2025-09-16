@@ -1,35 +1,34 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { formatDateTime } from '@/lib/utils';
+import { getSession } from '@/lib/session';
+import { PrismaClient } from '@prisma/client';
 import JSZip from 'jszip';
 
-export const dynamic = "force-dynamic";
+const prisma = new PrismaClient();
 
-// Download assignment submissions
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const teacher = getSession();
+    if (!teacher) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const assignmentId = parseInt(params.id);
-    const { searchParams } = new URL(req.url);
-    const type = searchParams.get('type') || 'all'; // 'all', 'drafts', 'finals', 'individual'
+    const assignmentId = params.id;
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type') || 'all'; // all, drafts, submitted, bulk
     const studentName = searchParams.get('student');
 
-    // Verify ownership
     const assignment = await prisma.assignment.findFirst({
-      where: {
+      where: { 
         id: assignmentId,
-        teacher_id: session.user.id
+        teacher_id: teacher.id 
       },
       include: {
         student_work: {
-          orderBy: [{ student_name: 'asc' }, { status: 'desc' }]
+          orderBy: { student_name: 'asc' }
         }
       }
     });
@@ -38,134 +37,115 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
 
-    // Filter work based on type
-    let workToDownload = assignment.student_work;
-    
+    // Filter student work based on type
+    let studentWork = assignment.student_work;
     if (type === 'drafts') {
-      workToDownload = workToDownload.filter(w => w.status === 'draft');
-    } else if (type === 'finals') {
-      workToDownload = workToDownload.filter(w => w.status === 'final');
+      studentWork = studentWork.filter(work => work.status === 'draft');
+    } else if (type === 'submitted') {
+      studentWork = studentWork.filter(work => work.status === 'submitted');
     }
-    
+
+    // Single student download
     if (studentName) {
-      workToDownload = workToDownload.filter(w => w.student_name === studentName);
-    }
+      const work = studentWork.find(w => w.student_name === studentName);
+      if (!work) {
+        return NextResponse.json({ error: 'Student work not found' }, { status: 404 });
+      }
 
-    if (workToDownload.length === 0) {
-      return NextResponse.json({ error: 'No submissions found' }, { status: 404 });
-    }
-
-    // Generate file content
-    const generateFileContent = (work: any) => {
-      const status = work.status.toUpperCase();
-      const timestamp = work.status === 'final' 
-        ? work.submitted_at 
-        : work.last_saved_at;
-      
-      return `=====================================
-HOMEWORK ${status === 'FINAL' ? 'SUBMISSION - FINAL' : 'DRAFT'}
-=====================================
-
-Assignment Title: ${assignment.title}
-Student Name: ${work.student_name}
-${status === 'FINAL' ? 'Final Submission:' : 'Draft Saved:'} ${formatDateTime(timestamp)}
-Word Count: ${work.word_count || 0}
-Status: ${status}${status === 'DRAFT' ? ' - NOT FINAL SUBMISSION' : ''}
-Assignment Capacity: ${assignment.student_count}/${assignment.max_students} students
-
--------------------------------------
-ASSIGNMENT QUESTION:
--------------------------------------
-${assignment.content}
-
-${assignment.instructions ? `
--------------------------------------
-INSTRUCTIONS:
--------------------------------------
-${assignment.instructions}
-` : ''}
--------------------------------------
-STUDENT ANSWER${status === 'DRAFT' ? ' (DRAFT)' : ''}:
--------------------------------------
-${work.content}
-
-=====================================
-End of ${status === 'FINAL' ? 'Final Submission' : 'Draft'}
-=====================================`;
-    };
-
-    // Single file download
-    if (workToDownload.length === 1) {
-      const work = workToDownload[0];
-      const content = generateFileContent(work);
-      const fileName = `${work.student_name}_${formatDateTime(work.last_saved_at || new Date()).replace(/[^\w]/g, '-')}_${work.status.toUpperCase()}.txt`;
+      const content = createSubmissionFile(assignment, work);
+      const filename = `${work.student_name}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
       
       return new NextResponse(content, {
         headers: {
           'Content-Type': 'text/plain',
-          'Content-Disposition': `attachment; filename="${fileName}"`
-        }
+          'Content-Disposition': `attachment; filename="${filename}"`,
+        },
       });
     }
 
-    // Multiple files - create ZIP
-    const zip = new JSZip();
-    
-    // Create folders
-    const finalFolder = zip.folder('Final_Submissions');
-    const draftFolder = zip.folder('Draft_Submissions');
-    
-    // Add files to appropriate folders
-    workToDownload.forEach(work => {
-      const content = generateFileContent(work);
-      const fileName = `${work.student_name}_${formatDateTime(work.last_saved_at || new Date()).replace(/[^\w]/g, '-')}_${work.status.toUpperCase()}.txt`;
+    // Bulk download as ZIP
+    if (type === 'bulk' || studentWork.length > 1) {
+      const zip = new JSZip();
       
-      if (work.status === 'final') {
-        finalFolder?.file(fileName, content);
-      } else {
-        draftFolder?.file(fileName, content);
+      for (const work of studentWork) {
+        const content = createSubmissionFile(assignment, work);
+        const filename = `${work.student_name}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
+        zip.file(filename, content);
       }
-    });
 
-    // Create summary file
-    const finalCount = workToDownload.filter(w => w.status === 'final').length;
-    const draftCount = workToDownload.filter(w => w.status === 'draft').length;
-    const uniqueStudents = new Set(workToDownload.map(w => w.student_name)).size;
+      const zipContent = await zip.generateAsync({ type: 'nodebuffer' });
+      const zipFilename = `${assignment.title}_submissions_${formatDate(new Date())}.zip`;
 
-    const summaryContent = `SUBMISSION SUMMARY
-Assignment: ${assignment.title}
-Total Students: ${uniqueStudents}
-Final Submissions: ${finalCount}
-Draft Only: ${draftCount}
-Assignment Capacity: ${assignment.student_count}/${assignment.max_students} students
-Download Date: ${formatDateTime(new Date())}
+      return new NextResponse(zipContent, {
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="${zipFilename}"`,
+        },
+      });
+    }
 
-STUDENT STATUS:
-${workToDownload.map((work, index) => 
-  `${index + 1}. ${work.student_name} - ${work.status.toUpperCase()} - ${formatDateTime(work.status === 'final' ? (work.submitted_at || new Date()) : (work.last_saved_at || new Date()))} - ${work.word_count || 0} words`
-).join('\n')}
+    // Single file download for single submission
+    if (studentWork.length === 1) {
+      const work = studentWork[0];
+      const content = createSubmissionFile(assignment, work);
+      const filename = `${work.student_name}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
+      
+      return new NextResponse(content, {
+        headers: {
+          'Content-Type': 'text/plain',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+        },
+      });
+    }
 
-CAPACITY METRICS:
-Current Students: ${assignment.student_count}
-Available Slots: ${assignment.max_students - assignment.student_count}
-Capacity Utilization: ${Math.round((assignment.student_count / assignment.max_students) * 100)}%
-`;
-
-    zip.file('submission_summary.txt', summaryContent);
-
-    // Generate ZIP
-    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
-    const zipFileName = `${assignment.title.replace(/[^\w]/g, '-')}_Submissions_${new Date().toISOString().split('T')[0]}.zip`;
-
-    return new NextResponse(zipBuffer, {
-      headers: {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${zipFileName}"`
-      }
-    });
+    return NextResponse.json({ error: 'No submissions found' }, { status: 404 });
 
   } catch (error) {
-    console.error('Error downloading submissions:', error);
+    console.error('Download error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+function createSubmissionFile(assignment: any, work: any): string {
+  const header = `HOMEWORK ASSIGNMENT SUBMISSION
+${'='.repeat(50)}
+
+Assignment: ${assignment.title}
+Student: ${work.student_name}
+Status: ${work.status.toUpperCase()}
+Word Count: ${work.word_count}
+Last Saved: ${formatDate(work.last_saved_at)}
+${work.submitted_at ? `Submitted: ${formatDate(work.submitted_at)}` : ''}
+
+${'='.repeat(50)}
+QUESTION/PROMPT:
+${'='.repeat(50)}
+
+${assignment.content}
+
+${assignment.instructions ? `
+${'='.repeat(50)}
+INSTRUCTIONS:
+${'='.repeat(50)}
+
+${assignment.instructions}
+` : ''}
+
+${'='.repeat(50)}
+STUDENT ANSWER:
+${'='.repeat(50)}
+
+${work.content || '(No answer provided)'}
+
+${'='.repeat(50)}
+END OF SUBMISSION
+${'='.repeat(50)}
+`;
+
+  return header;
+}
+
+function formatDate(date: Date): string {
+  return new Date(date).toISOString().split('T')[0] + '_' + 
+         new Date(date).toTimeString().split(' ')[0].replace(/:/g, '-');
 }

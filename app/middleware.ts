@@ -1,5 +1,5 @@
 
-// Temporary middleware disabled for deployment
+// No middleware for this implementation
 export function middleware() {
   return;
 }

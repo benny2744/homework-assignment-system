@@ -8,21 +8,21 @@ async function main() {
   console.log('Starting database seed...');
   
   // Create test teacher account
-  const hashedPassword = await bcrypt.hash('johndoe123', 12);
+  const hashedPassword = await bcrypt.hash('demo_password', 12);
   
   // Clear existing data
-  await prisma.autoSaveSession.deleteMany({});
   await prisma.studentWork.deleteMany({});
   await prisma.assignment.deleteMany({});
-  await prisma.user.deleteMany({});
+  await prisma.teacher.deleteMany({});
+  await prisma.systemLog.deleteMany({});
   
   // Create test teacher
-  const testTeacher = await prisma.user.create({
+  const testTeacher = await prisma.teacher.create({
     data: {
-      username: 'john@doe.com',
+      username: 'demo_teacher',
       password_hash: hashedPassword,
-      created_at: new Date(),
       active_sessions_count: 0,
+      failed_attempts: 0,
     },
   });
   
@@ -49,7 +49,7 @@ Make sure to:
 - Use proper grammar and structure
 - Stay within the word limit`,
       instructions: 'Please read the prompt carefully and write a thoughtful, well-structured essay. You can save your work as a draft and return to continue writing at any time before the deadline.',
-      assignment_code: 'ABC123',
+      assignment_code: 'DEMO01',
       status: 'active',
       activated_at: new Date(),
       student_count: 0,
@@ -61,9 +61,9 @@ Make sure to:
   
   console.log('Database seeded successfully!');
   console.log('\nTest credentials:');
-  console.log('Username: john@doe.com');
-  console.log('Password: johndoe123');
-  console.log('Sample Assignment Code: ABC123');
+  console.log('Teacher Username: demo_teacher');
+  console.log('Teacher Password: demo_password');
+  console.log('Sample Assignment Code: DEMO01');
 }
 
 main()

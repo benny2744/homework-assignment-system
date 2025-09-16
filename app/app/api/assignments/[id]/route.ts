@@ -1,27 +1,27 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/session';
+import { PrismaClient } from '@prisma/client';
 
-export const dynamic = "force-dynamic";
+const prisma = new PrismaClient();
 
-// Update assignment status
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const teacher = getSession();
+    if (!teacher) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { status } = await req.json();
-    const assignmentId = parseInt(params.id);
+    const { action } = await request.json();
+    const assignmentId = params.id;
 
-    // Verify ownership
     const assignment = await prisma.assignment.findFirst({
-      where: {
+      where: { 
         id: assignmentId,
-        teacher_id: session.user.id
+        teacher_id: teacher.id 
       }
     });
 
@@ -29,36 +29,87 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
 
-    const updatedAssignment = await prisma.assignment.update({
-      where: { id: assignmentId },
-      data: {
-        status,
-        closed_at: status === 'closed' ? new Date() : null
-      }
-    });
+    if (action === 'close') {
+      await prisma.assignment.update({
+        where: { id: assignmentId },
+        data: { 
+          status: 'closed',
+          closed_at: new Date()
+        }
+      });
 
-    return NextResponse.json(updatedAssignment);
+      // Update teacher's active session count
+      const activeCount = await prisma.assignment.count({
+        where: { 
+          teacher_id: teacher.id,
+          status: 'active'
+        }
+      });
+      
+      await prisma.teacher.update({
+        where: { id: teacher.id },
+        data: { active_sessions_count: activeCount }
+      });
+
+      return NextResponse.json({ success: true, message: 'Assignment closed' });
+    }
+
+    if (action === 'reopen') {
+      // Check session limit before reopening
+      const activeAssignments = await prisma.assignment.count({
+        where: { 
+          teacher_id: teacher.id,
+          status: 'active'
+        }
+      });
+
+      if (activeAssignments >= 3) {
+        return NextResponse.json(
+          { error: 'Cannot reopen: Maximum of 3 active assignments reached' },
+          { status: 409 }
+        );
+      }
+
+      await prisma.assignment.update({
+        where: { id: assignmentId },
+        data: { 
+          status: 'active',
+          activated_at: new Date()
+        }
+      });
+
+      await prisma.teacher.update({
+        where: { id: teacher.id },
+        data: { active_sessions_count: activeAssignments + 1 }
+      });
+
+      return NextResponse.json({ success: true, message: 'Assignment reopened' });
+    }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+
   } catch (error) {
-    console.error('Error updating assignment:', error);
+    console.error('Update assignment error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// Delete assignment
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const teacher = getSession();
+    if (!teacher) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const assignmentId = parseInt(params.id);
+    const assignmentId = params.id;
 
-    // Verify ownership
     const assignment = await prisma.assignment.findFirst({
-      where: {
+      where: { 
         id: assignmentId,
-        teacher_id: session.user.id
+        teacher_id: teacher.id 
       }
     });
 
@@ -66,26 +117,33 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
 
-    // Delete related data
-    await prisma.autoSaveSession.deleteMany({
-      where: {
-        student_work: {
-          assignment_id: assignmentId
-        }
-      }
-    });
-
+    // Delete student work first
     await prisma.studentWork.deleteMany({
       where: { assignment_id: assignmentId }
     });
 
+    // Delete assignment
     await prisma.assignment.delete({
       where: { id: assignmentId }
     });
 
-    return NextResponse.json({ success: true });
+    // Update teacher's active session count
+    const activeCount = await prisma.assignment.count({
+      where: { 
+        teacher_id: teacher.id,
+        status: 'active'
+      }
+    });
+    
+    await prisma.teacher.update({
+      where: { id: teacher.id },
+      data: { active_sessions_count: activeCount }
+    });
+
+    return NextResponse.json({ success: true, message: 'Assignment deleted' });
+
   } catch (error) {
-    console.error('Error deleting assignment:', error);
+    console.error('Delete assignment error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

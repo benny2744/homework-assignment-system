@@ -1,9 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { createTeacher } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,21 +14,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (username.length < 3) {
+    if (username.length < 3 || username.length > 50) {
       return NextResponse.json(
-        { error: 'Username must be at least 3 characters long' },
+        { error: 'Username must be between 3-50 characters' },
         { status: 400 }
       );
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
+        { error: 'Password must be at least 8 characters long' },
         { status: 400 }
       );
     }
 
-    // Check if username contains only alphanumeric characters and underscores
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
       return NextResponse.json(
         { error: 'Username can only contain letters, numbers, and underscores' },
@@ -39,48 +35,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { username },
-    });
+    const teacher = await createTeacher(username, password);
 
-    if (existingUser) {
+    if (!teacher) {
       return NextResponse.json(
         { error: 'Username already exists' },
         { status: 409 }
       );
     }
 
-    // Hash password
-    const saltRounds = 12;
-    const password_hash = await bcrypt.hash(password, saltRounds);
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        username,
-        password_hash,
-        active_sessions_count: 0,
-        failed_attempts: 0,
-      },
-      select: {
-        id: true,
-        username: true,
-        created_at: true,
-      },
+    return NextResponse.json({
+      success: true,
+      message: 'Teacher account created successfully',
+      teacher: {
+        id: teacher.id,
+        username: teacher.username,
+      }
     });
-
-    return NextResponse.json(
-      {
-        message: 'User created successfully',
-        user: {
-          id: user.id,
-          username: user.username,
-          created_at: user.created_at,
-        },
-      },
-      { status: 201 }
-    );
 
   } catch (error) {
     console.error('Registration error:', error);

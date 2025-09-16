@@ -2,13 +2,12 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import Providers from '@/providers/session-provider';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Homework Assignment System',
-  description: 'Secure homework assignment and collection system',
+  description: 'Secure homework assignment and collection system for educators',
 };
 
 export default function RootLayout({
@@ -19,9 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>
+        <div className="min-h-screen bg-gray-50">
           {children}
-        </Providers>
+        </div>
       </body>
     </html>
   );
