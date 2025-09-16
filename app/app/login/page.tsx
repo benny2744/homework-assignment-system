@@ -108,6 +108,19 @@ export default function LoginPage() {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-600">
+                Don't have a teacher account?{' '}
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-blue-600 hover:text-blue-500"
+                  onClick={() => router.push('/register')}
+                >
+                  Create Account
+                </Button>
+              </p>
+            </div>
           </CardContent>
         </Card>
 

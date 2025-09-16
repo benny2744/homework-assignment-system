@@ -71,6 +71,10 @@ export const authOptions = {
   ],
   session: {
     strategy: 'jwt' as const,
+    maxAge: 24 * 60 * 60, // 24 hours
+  },
+  jwt: {
+    maxAge: 24 * 60 * 60, // 24 hours
   },
   callbacks: {
     async jwt({ token, user }: { token: any; user: any }) {
@@ -88,6 +92,18 @@ export const authOptions = {
   pages: {
     signIn: '/login',
   },
+  cookies: {
+    sessionToken: {
+      name: 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false, // Set to true in production with HTTPS
+      },
+    },
+  },
+  debug: process.env.NODE_ENV === 'development',
 };
 
 export default NextAuth(authOptions);
