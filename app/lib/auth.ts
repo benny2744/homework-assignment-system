@@ -99,32 +99,11 @@ export const authOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false,
-        domain: 'localhost', // Force localhost domain
-      },
-    },
-    callbackUrl: {
-      name: 'next-auth.callback-url',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: false,
-        domain: 'localhost',
-      },
-    },
-    csrfToken: {
-      name: 'next-auth.csrf-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: false,
-        domain: 'localhost',
+        secure: process.env.NODE_ENV === 'production',
       },
     },
   },
-  useSecureCookies: false,
+  useSecureCookies: process.env.NODE_ENV === 'production',
   debug: false,
 };
 
