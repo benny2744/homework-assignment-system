@@ -55,16 +55,52 @@ export default function CreateAssignmentPage() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        setFormData(prev => ({ ...prev, content }));
-      };
-      reader.readAsText(file);
+  const renderMarkdown = (text: string) => {
+    if (!text) return text;
+    
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/^## (.*$)/gim, '<h4 class="text-lg font-semibold mt-4 mb-2">$1</h4>')
+      .replace(/^• (.*$)/gim, '<li class="ml-4">• $1</li>')
+      .replace(/\n/g, '<br>');
+  };
+
+  const handleContentFormat = (action: string) => {
+    // Simple rich text formatting helpers
+    const textarea = document.getElementById('content') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    
+    let newText = '';
+    switch (action) {
+      case 'bold':
+        newText = `**${selectedText}**`;
+        break;
+      case 'italic':
+        newText = `*${selectedText}*`;
+        break;
+      case 'heading':
+        newText = `## ${selectedText}`;
+        break;
+      case 'bullet':
+        newText = `• ${selectedText}`;
+        break;
+      default:
+        return;
     }
+
+    const newContent = formData.content.substring(0, start) + newText + formData.content.substring(end);
+    setFormData(prev => ({ ...prev, content: newContent }));
+    
+    // Restore cursor position
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + newText.length, start + newText.length);
+    }, 0);
   };
 
   return (
@@ -122,36 +158,68 @@ export default function CreateAssignmentPage() {
                     Assignment Content *
                   </label>
                   <div className="space-y-3">
-                    <div className="flex items-center space-x-4">
-                      <label htmlFor="file-upload" className="cursor-pointer">
-                        <div className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
-                          <Upload className="h-4 w-4" />
-                          <span className="text-sm">Upload File</span>
-                        </div>
-                        <input
-                          id="file-upload"
-                          type="file"
-                          accept=".txt,.doc,.docx,.pdf"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                          disabled={loading}
-                        />
-                      </label>
-                      <span className="text-sm text-gray-500">or</span>
-                      <span className="text-sm text-gray-500">type/paste content below</span>
+                    <div className="flex items-center space-x-2 p-2 border border-gray-300 rounded-md bg-gray-50">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleContentFormat('bold')}
+                        disabled={loading}
+                      >
+                        <strong>B</strong>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleContentFormat('italic')}
+                        disabled={loading}
+                      >
+                        <em>I</em>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleContentFormat('heading')}
+                        disabled={loading}
+                      >
+                        H2
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleContentFormat('bullet')}
+                        disabled={loading}
+                      >
+                        •
+                      </Button>
+                      <span className="text-xs text-gray-500 ml-auto">
+                        Select text and click formatting buttons
+                      </span>
                     </div>
                     <Textarea
                       id="content"
-                      placeholder="Enter your assignment question, prompt, or worksheet content here..."
+                      placeholder="Enter your assignment question, prompt, or worksheet content here...
+
+Use formatting:
+**Bold text**
+*Italic text*
+## Heading
+• Bullet point
+
+You can type directly or select text and use the formatting buttons above."
                       value={formData.content}
                       onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                      rows={10}
+                      rows={12}
                       required
                       disabled={loading}
+                      className="font-mono text-sm"
                     />
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {formData.content.length} characters
+                    {formData.content.length} characters • Supports markdown-style formatting
                   </div>
                 </div>
 
@@ -221,17 +289,23 @@ export default function CreateAssignmentPage() {
                   
                   <div className="bg-blue-50 p-4 rounded-lg mb-4">
                     <h4 className="font-medium text-blue-900 mb-2">Question/Prompt:</h4>
-                    <div className="whitespace-pre-wrap text-blue-800">
-                      {formData.content || 'Assignment content will appear here...'}
-                    </div>
+                    <div 
+                      className="text-blue-800"
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdown(formData.content || 'Assignment content will appear here...')
+                      }}
+                    />
                   </div>
 
                   {formData.instructions && (
                     <div className="bg-yellow-50 p-4 rounded-lg mb-4">
                       <h4 className="font-medium text-yellow-900 mb-2">Instructions:</h4>
-                      <div className="whitespace-pre-wrap text-yellow-800">
-                        {formData.instructions}
-                      </div>
+                      <div 
+                        className="text-yellow-800"
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkdown(formData.instructions)
+                        }}
+                      />
                     </div>
                   )}
 

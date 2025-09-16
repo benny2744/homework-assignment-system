@@ -49,6 +49,14 @@ export default function StudentAccessPage() {
           isSubmitted: data.isSubmitted,
         }));
         
+        // Store assignment and student work data for the assignment page
+        localStorage.setItem('current-assignment', JSON.stringify({
+          assignment: data.assignment,
+          studentWork: data.studentWork,
+          isReturning: data.isReturning,
+          isSubmitted: data.isSubmitted,
+        }));
+        
         router.push('/student/assignment');
       } else {
         setError(data.error || 'Access denied');

@@ -96,28 +96,38 @@ export default function StudentAssignmentPage() {
     }
   }, [content]);
 
+  const renderMarkdown = (text: string) => {
+    if (!text) return text;
+    
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/^## (.*$)/gim, '<h4 class="text-lg font-semibold mt-4 mb-2">$1</h4>')
+      .replace(/^• (.*$)/gim, '<li class="ml-4">• $1</li>')
+      .replace(/\n/g, '<br>');
+  };
+
   const fetchAssignmentData = async (sessionData: StudentSession) => {
-    // For now, we'll simulate the assignment data since we already have the session info
-    // In a real implementation, this would fetch fresh data from the API
-    const simulatedAssignment = {
-      id: sessionData.assignmentId,
-      title: sessionData.isSubmitted ? 'Assignment (Submitted)' : 'Assignment (In Progress)',
-      content: `This is a placeholder for the assignment content. In a real implementation, this would be fetched from the API using the assignment ID: ${sessionData.assignmentId}`,
-      instructions: 'Complete your assignment and submit when ready.'
-    };
-
-    const simulatedStudentWork = {
-      id: sessionData.studentWorkId,
-      content: '',
-      word_count: 0,
-      status: sessionData.isSubmitted ? 'submitted' : 'draft',
-      submitted_at: sessionData.isSubmitted ? new Date().toISOString() : undefined
-    };
-
-    setAssignment(simulatedAssignment);
-    setStudentWork(simulatedStudentWork);
-    setContent(simulatedStudentWork.content || '');
-    setWordCount(simulatedStudentWork.word_count || 0);
+    try {
+      // Get assignment data from localStorage (stored by student access page)
+      const storedAssignmentData = localStorage.getItem('current-assignment');
+      if (storedAssignmentData) {
+        const parsedData = JSON.parse(storedAssignmentData);
+        setAssignment(parsedData.assignment);
+        setStudentWork(parsedData.studentWork);
+        setContent(parsedData.studentWork.content || '');
+        setWordCount(parsedData.studentWork.word_count || 0);
+      } else {
+        // If no stored data, redirect back to student access
+        setError('Assignment data not found. Redirecting to assignment access...');
+        setTimeout(() => {
+          router.push('/student');
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Error loading assignment data:', err);
+      setError('Failed to load assignment data.');
+    }
   };
 
   const setupCopyProtection = () => {
@@ -315,17 +325,23 @@ export default function StudentAssignmentPage() {
           <CardContent>
             <div className="copy-protected bg-blue-50 p-6 rounded-lg mb-4">
               <h3 className="font-semibold text-blue-900 mb-3">Assignment Question:</h3>
-              <div className="whitespace-pre-wrap text-blue-800 copy-protected">
-                {assignment.content}
-              </div>
+              <div 
+                className="text-blue-800 copy-protected"
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(assignment.content)
+                }}
+              />
             </div>
 
             {assignment.instructions && (
               <div className="copy-protected bg-yellow-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-yellow-900 mb-2">Instructions:</h4>
-                <div className="whitespace-pre-wrap text-yellow-800 copy-protected">
-                  {assignment.instructions}
-                </div>
+                <div 
+                  className="text-yellow-800 copy-protected"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(assignment.instructions)
+                  }}
+                />
               </div>
             )}
           </CardContent>

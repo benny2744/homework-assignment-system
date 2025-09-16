@@ -53,11 +53,13 @@ export async function GET(
       }
 
       const content = createSubmissionFile(assignment, work);
-      const filename = `${work.student_name}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
+      // Sanitize filename for cross-platform compatibility
+      const sanitizedName = work.student_name.replace(/[^a-zA-Z0-9_\-\s]/g, '');
+      const filename = `${sanitizedName}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
       
       return new NextResponse(content, {
         headers: {
-          'Content-Type': 'text/plain',
+          'Content-Type': 'text/plain; charset=utf-8',
           'Content-Disposition': `attachment; filename="${filename}"`,
         },
       });
@@ -65,34 +67,51 @@ export async function GET(
 
     // Bulk download as ZIP
     if (type === 'bulk' || studentWork.length > 1) {
-      const zip = new JSZip();
-      
-      for (const work of studentWork) {
-        const content = createSubmissionFile(assignment, work);
-        const filename = `${work.student_name}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
-        zip.file(filename, content);
+      try {
+        const zip = new JSZip();
+        
+        for (const work of studentWork) {
+          const content = createSubmissionFile(assignment, work);
+          // Sanitize filename for cross-platform compatibility
+          const sanitizedName = work.student_name.replace(/[^a-zA-Z0-9_\-\s]/g, '');
+          const filename = `${sanitizedName}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
+          zip.file(filename, content);
+        }
+
+        const zipContent = await zip.generateAsync({ 
+          type: 'nodebuffer',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 6 }
+        });
+        
+        // Sanitize zip filename 
+        const sanitizedTitle = assignment.title.replace(/[^a-zA-Z0-9_\-\s]/g, '');
+        const zipFilename = `${sanitizedTitle}_submissions_${formatDate(new Date())}.zip`;
+
+        return new NextResponse(zipContent, {
+          headers: {
+            'Content-Type': 'application/zip',
+            'Content-Disposition': `attachment; filename="${zipFilename}"`,
+            'Content-Length': zipContent.length.toString(),
+          },
+        });
+      } catch (zipError) {
+        console.error('ZIP creation error:', zipError);
+        return NextResponse.json({ error: 'Failed to create ZIP file' }, { status: 500 });
       }
-
-      const zipContent = await zip.generateAsync({ type: 'nodebuffer' });
-      const zipFilename = `${assignment.title}_submissions_${formatDate(new Date())}.zip`;
-
-      return new NextResponse(zipContent, {
-        headers: {
-          'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="${zipFilename}"`,
-        },
-      });
     }
 
     // Single file download for single submission
     if (studentWork.length === 1) {
       const work = studentWork[0];
       const content = createSubmissionFile(assignment, work);
-      const filename = `${work.student_name}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
+      // Sanitize filename for cross-platform compatibility
+      const sanitizedName = work.student_name.replace(/[^a-zA-Z0-9_\-\s]/g, '');
+      const filename = `${sanitizedName}_${formatDate(work.last_saved_at)}_${work.status.toUpperCase()}.txt`;
       
       return new NextResponse(content, {
         headers: {
-          'Content-Type': 'text/plain',
+          'Content-Type': 'text/plain; charset=utf-8',
           'Content-Disposition': `attachment; filename="${filename}"`,
         },
       });
@@ -104,6 +123,17 @@ export async function GET(
     console.error('Download error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+function markdownToPlainText(text: string): string {
+  if (!text) return text;
+  
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+    .replace(/\*(.*?)\*/g, '$1')     // Remove italic formatting  
+    .replace(/^## (.*$)/gim, '$1')   // Remove heading formatting
+    .replace(/^• (.*$)/gim, '• $1')  // Keep bullet points as is
+    .replace(/\n/g, '\n');           // Keep line breaks
 }
 
 function createSubmissionFile(assignment: any, work: any): string {
@@ -121,14 +151,14 @@ ${'='.repeat(50)}
 QUESTION/PROMPT:
 ${'='.repeat(50)}
 
-${assignment.content}
+${markdownToPlainText(assignment.content)}
 
 ${assignment.instructions ? `
 ${'='.repeat(50)}
 INSTRUCTIONS:
 ${'='.repeat(50)}
 
-${assignment.instructions}
+${markdownToPlainText(assignment.instructions)}
 ` : ''}
 
 ${'='.repeat(50)}
