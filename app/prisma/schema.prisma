@@ -1,0 +1,129 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/homework_assignment_system/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// Teachers table (users)
+model User {
+  id                   String   @id @default(cuid())
+  username            String   @unique @db.VarChar(50)
+  password_hash       String   @db.VarChar(255)
+  created_at          DateTime @default(now())
+  last_login          DateTime?
+  failed_attempts     Int      @default(0)
+  locked_until        DateTime?
+  active_sessions_count Int    @default(0)
+  
+  // Relations
+  assignments Assignment[]
+  accounts    Account[]
+  sessions    Session[]
+
+  @@map("users")
+}
+
+// Assignments table
+model Assignment {
+  id               Int      @id @default(autoincrement())
+  teacher_id       String
+  title           String   @db.VarChar(100)
+  content         String   @db.Text
+  instructions    String?  @db.Text
+  assignment_code String   @unique @db.VarChar(6)
+  status          String   @default("draft") @db.VarChar(20)
+  deadline        DateTime?
+  created_at      DateTime @default(now())
+  activated_at    DateTime?
+  closed_at       DateTime?
+  student_count   Int      @default(0)
+  max_students    Int      @default(30)
+  
+  // Relations
+  teacher         User           @relation(fields: [teacher_id], references: [id])
+  student_work    StudentWork[]
+
+  @@map("assignments")
+}
+
+// Student work table (drafts and final submissions)
+model StudentWork {
+  id               Int      @id @default(autoincrement())
+  assignment_id    Int
+  student_name     String   @db.VarChar(50)
+  content          String   @db.Text
+  word_count       Int?
+  status           String   @default("draft") @db.VarChar(20) // 'draft' or 'final'
+  created_at       DateTime @default(now())
+  last_saved_at    DateTime @default(now())
+  submitted_at     DateTime?
+  ip_address       String?
+  session_id       String?  @db.VarChar(255)
+  
+  // Relations
+  assignment       Assignment        @relation(fields: [assignment_id], references: [id])
+  auto_save_sessions AutoSaveSession[]
+
+  @@unique([assignment_id, student_name, status])
+  @@map("student_work")
+}
+
+// Auto-save sessions table
+model AutoSaveSession {
+  id                Int      @id @default(autoincrement())
+  student_work_id   Int
+  session_token     String   @unique @db.VarChar(255)
+  last_activity     DateTime @default(now())
+  expires_at        DateTime
+  created_at        DateTime @default(now())
+  
+  // Relations
+  student_work      StudentWork @relation(fields: [student_work_id], references: [id])
+
+  @@map("auto_save_sessions")
+}
+
+// NextAuth required tables
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
