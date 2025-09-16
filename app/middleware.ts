@@ -3,11 +3,18 @@ import { withAuth } from 'next-auth/middleware';
 
 export default withAuth(
   function middleware(req) {
-    // This function will only be invoked if the token is valid
+    // Allow the request to proceed if authenticated
+    return;
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        // Allow access to dashboard only if token exists
+        if (req.nextUrl.pathname.startsWith('/dashboard')) {
+          return !!token;
+        }
+        return true;
+      },
     },
   }
 );

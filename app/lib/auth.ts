@@ -99,10 +99,32 @@ export const authOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false, // Set to true in production with HTTPS
+        secure: false,
+        domain: 'localhost', // Force localhost domain
+      },
+    },
+    callbackUrl: {
+      name: 'next-auth.callback-url',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+        domain: 'localhost',
+      },
+    },
+    csrfToken: {
+      name: 'next-auth.csrf-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+        domain: 'localhost',
       },
     },
   },
+  useSecureCookies: false,
   debug: false,
 };
 

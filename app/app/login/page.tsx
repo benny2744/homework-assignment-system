@@ -26,14 +26,21 @@ export default function LoginPage() {
         username: credentials.username,
         password: credentials.password,
         redirect: false,
+        callbackUrl: '/dashboard',
       });
 
       if (result?.error) {
         setError('Invalid credentials or account is locked. Please try again.');
       } else if (result?.ok) {
-        router.replace('/dashboard');
+        // Give a moment for the session to be established
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 100);
+      } else {
+        setError('Authentication failed. Please try again.');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
