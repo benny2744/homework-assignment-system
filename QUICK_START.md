@@ -60,7 +60,8 @@ Open your browser and visit:
 
 2. **Create a new assignment:**
    - Visit dashboard → "Create Assignment"
-   - Add title and content
+   - Use rich text editor with formatting toolbar (Bold, Italic, Headings, Bullets)
+   - Preview your formatted assignment in real-time
    - Note the generated 6-character code
 
 3. **Monitor submissions:**

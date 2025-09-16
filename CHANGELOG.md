@@ -5,6 +5,45 @@ All notable changes to the Homework Assignment System are documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2024-09-16 - Feature Enhancement & Bug Fixes
+
+### 🚀 **Major Improvements**
+
+#### **Rich Text Assignment Creation**
+- **Replaced File Upload System**: Removed problematic file upload (PDF/Word processing issues)
+- **Markdown-Style Editor**: Added formatting toolbar with Bold, Italic, Headings, Bullets
+- **Live Preview**: Real-time preview showing exactly how students will see content
+- **Cross-Platform Compatibility**: Markdown rendering works consistently across all platforms
+
+#### **Real Data Integration**
+- **Removed All Placeholders**: Fixed student assignment page to use real API data
+- **Enhanced Data Flow**: Proper assignment data storage and retrieval system
+- **Improved Error Handling**: Graceful fallbacks when assignment data is unavailable
+- **Session Data Management**: Better localStorage integration for student sessions
+
+#### **Enhanced Download System**
+- **Improved JSZip Implementation**: Added comprehensive error handling and compression
+- **Cross-Platform Filenames**: Sanitized special characters for compatibility
+- **Better File Formats**: Clean plain-text conversion of markdown content in downloads
+- **Robust Error Recovery**: Detailed error messages and fallback mechanisms
+
+#### **Markdown Rendering System**
+- **Consistent Display**: Same rendering on teacher preview and student assignment view
+- **Copy Protection Maintained**: All security features preserved on formatted content
+- **Professional Formatting**: Proper HTML rendering with styled headings and formatting
+
+### 🔧 **Technical Fixes**
+- **Performance Optimization**: Better compression algorithms for bulk downloads
+- **Security Enhancement**: Maintained all copy protection while adding rich text features
+- **API Integration**: Fixed data fetching issues between student access and assignment pages
+- **UI/UX Improvements**: Better visual feedback and more intuitive content creation
+
+### 📋 **Quality Assurance**
+- **Zero Placeholders**: All simulated data removed from production code
+- **Full Feature Testing**: Complete functionality verification across all user flows
+- **Cross-Browser Compatibility**: Tested markdown rendering across different browsers
+- **Error Handling**: Comprehensive error recovery for all edge cases
+
 ## [1.0.0] - 2024-09-16 - Initial Release
 
 ### 🎉 **Major Features Added**

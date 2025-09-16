@@ -16,10 +16,11 @@ The Homework Assignment System enables teachers to create, distribute, and colle
 
 ### 👩‍🏫 Teacher Features
 - **Simple Authentication**: Username/password login with account lockout protection
-- **Assignment Creation**: Support for text input and file uploads (.txt, .doc, .docx, .pdf)
+- **Rich Text Assignment Creation**: Advanced text editor with markdown formatting support
+- **Live Preview**: Real-time preview of formatted assignments as students will see them
 - **Capacity Management**: Maximum 3 active assignments per teacher, 30 students per assignment
 - **Real-time Monitoring**: Track student progress, draft vs. final submissions
-- **Bulk Downloads**: Individual or batch download of submissions in organized formats
+- **Enhanced Bulk Downloads**: Robust ZIP downloads with error handling and compression
 
 ### 👨‍🎓 Student Features  
 - **Code-based Access**: No individual accounts required - access via assignment codes

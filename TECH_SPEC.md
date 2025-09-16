@@ -31,6 +31,8 @@
 - Prisma ORM 6.x
 - bcrypt 2.4.x for password hashing
 - jsonwebtoken 9.x for sessions
+- JSZip 3.10.x for bulk file downloads
+- Markdown rendering system (custom implementation)
 
 ## 🔧 Database Schema
 
@@ -649,6 +651,118 @@ interface ErrorResponse {
   details?: any;           // Additional error context
   timestamp: string;       // ISO datetime of error
 }
+```
+
+## ✨ Rich Text & Content System
+
+### **Markdown Editor Implementation**
+
+#### **Rich Text Features**
+```typescript
+interface MarkdownEditor {
+  formatters: {
+    bold: (text: string) => `**${text}**`;
+    italic: (text: string) => `*${text}*`;
+    heading: (text: string) => `## ${text}`;
+    bullet: (text: string) => `• ${text}`;
+  };
+  
+  preview: {
+    renderMarkdown: (text: string) => string;
+    livePreview: boolean;
+    copyProtection: boolean;
+  };
+}
+```
+
+#### **Content Rendering Pipeline**
+```typescript
+// Client-side rendering (teacher preview & student view)
+const renderMarkdown = (text: string) => {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^## (.*$)/gim, '<h4>$1</h4>')
+    .replace(/^• (.*$)/gim, '<li>• $1</li>')
+    .replace(/\n/g, '<br>');
+};
+
+// Server-side plain text conversion (for downloads)
+const markdownToPlainText = (text: string) => {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^## (.*$)/gim, '$1')
+    .replace(/^• (.*$)/gim, '• $1')
+    .replace(/\n/g, '\n');
+};
+```
+
+### **Enhanced Data Flow Architecture**
+
+#### **Student Session Management**
+```typescript
+interface StudentSession {
+  studentName: string;
+  assignmentId: string;
+  studentWorkId: string;
+  isReturning: boolean;
+  isSubmitted: boolean;
+}
+
+// Improved data storage pattern
+localStorage.setItem('student-session', JSON.stringify(sessionData));
+localStorage.setItem('current-assignment', JSON.stringify({
+  assignment: assignmentData,
+  studentWork: workData,
+  isReturning: boolean,
+  isSubmitted: boolean
+}));
+```
+
+#### **Assignment Data Integration**
+```typescript
+// Real-time data flow (no placeholders)
+const dataFlow = {
+  creation: 'Teacher → Rich Editor → Preview → Database',
+  access: 'Student → Code Entry → Real Data Fetch → Display',
+  submission: 'Student → Auto-save → Final Submit → Download'
+};
+```
+
+### **Download System Architecture**
+
+#### **Enhanced JSZip Implementation**
+```typescript
+interface DownloadConfig {
+  compression: 'DEFLATE';
+  compressionOptions: { level: 6 };
+  errorHandling: 'comprehensive';
+  filenameSanitization: boolean;
+  crossPlatformCompatibility: true;
+}
+
+// Robust download generation
+const createZip = async (submissions: StudentWork[]) => {
+  try {
+    const zip = new JSZip();
+    
+    for (const work of submissions) {
+      const content = createSubmissionFile(assignment, work);
+      const sanitizedName = work.student_name.replace(/[^a-zA-Z0-9_\-\s]/g, '');
+      const filename = `${sanitizedName}_${formatDate(work.last_saved_at)}_${work.status}.txt`;
+      zip.file(filename, content);
+    }
+
+    return await zip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+  } catch (error) {
+    throw new Error('ZIP generation failed');
+  }
+};
 ```
 
 ---
