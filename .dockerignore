@@ -1,0 +1,12 @@
+**/.next
+**/node_modules
+**/.yarn/cache
+**/.yarn/unplugged
+**/.pnp.*
+**/.env
+**/dist
+**/build
+**/.turbo
+**/.DS_Store
+
+

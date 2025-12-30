@@ -50,55 +50,107 @@ npx prisma db push
 npx prisma db seed
 ```
 
-### Option 2: Docker Deployment
+### Option 2: Docker Compose Deployment (Recommended)
 
-**Create Dockerfile:**
-```dockerfile
-FROM node:18-alpine
+The project includes a complete Docker Compose setup with nginx gateway, Next.js application, PostgreSQL database, and automatic migrations.
 
-WORKDIR /app
-COPY package*.json ./
-COPY yarn.lock ./
-RUN yarn install --frozen-lockfile
+**Prerequisites:**
+- Docker Engine 20.10+
+- Docker Compose 2.0+
 
-COPY . .
-RUN npx prisma generate
-RUN yarn build
-
-EXPOSE 3000
-CMD ["yarn", "start"]
-```
-
-**Docker Compose:**
-```yaml
-version: '3.8'
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=postgresql://user:pass@db:5432/homework
-      - SESSION_SECRET=production-secret
-    depends_on:
-      - db
-  
-  db:
-    image: postgres:14
-    environment:
-      - POSTGRES_DB=homework
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
-
-**Deploy:**
+**Quick Start:**
 ```bash
+# From project root directory
+cd homework-assignment-system
+
+# Set environment variables (optional, defaults provided)
+export SESSION_SECRET="your-secure-session-secret-key"
+export NEXT_PUBLIC_BASE_PATH=""  # Optional: set subpath like "/homework"
+export NEXT_BASE_PATH=""          # Optional: set subpath like "/homework"
+
+# Start all services
 docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+**Access Points:**
+- **Main Application** (via nginx): `http://localhost:4170`
+- **Direct Next.js** (bypass nginx): `http://localhost:4171`
+- **PostgreSQL Database**: `localhost:4172`
+- **Adminer (DB UI)**: `http://localhost:4173`
+
+**Services Overview:**
+- **gateway** (nginx): Single-origin entrypoint on port 4170, proxies all traffic to Next.js
+- **web** (Next.js): Application server on port 3000 (internal), exposed on 4171
+- **migrate**: Runs database migrations automatically before web service starts
+- **db** (PostgreSQL 16): Database on port 5432 (internal), exposed on 4172
+- **adminer**: Lightweight database administration UI on port 4173
+
+**Configuration:**
+
+The `docker-compose.yml` includes:
+- Multi-stage Dockerfile with optimized build process
+- Automatic database migrations via separate migrate service
+- Health checks for database readiness
+- Volume persistence for database data
+- Network isolation for all services
+- Support for subpath deployment via `NEXT_PUBLIC_BASE_PATH` and `NEXT_BASE_PATH`
+
+**Environment Variables:**
+
+Create a `.env` file in the project root (optional):
+```env
+SESSION_SECRET=your-production-secret-key-minimum-64-characters
+NEXT_PUBLIC_BASE_PATH=/homework  # Optional: for subpath deployment
+NEXT_BASE_PATH=/homework          # Optional: for subpath deployment
+```
+
+**Database Setup:**
+
+The migrate service automatically runs `prisma db push` before the web service starts. For initial seeding:
+```bash
+# Access the web container
+docker-compose exec web sh
+
+# Run seed script
+yarn prisma db seed
+```
+
+**Production Deployment:**
+
+For production, update `docker-compose.yml`:
+1. Change default passwords in database environment variables
+2. Set strong `SESSION_SECRET` environment variable
+3. Configure SSL/TLS termination (nginx or external load balancer)
+4. Update nginx configuration for HTTPS
+5. Set up proper backup strategy for database volumes
+
+**Stopping Services:**
+```bash
+# Stop all services
+docker-compose down
+
+# Stop and remove volumes (⚠️ deletes database data)
+docker-compose down -v
+```
+
+**Troubleshooting:**
+```bash
+# Check service status
+docker-compose ps
+
+# View logs for specific service
+docker-compose logs web
+docker-compose logs db
+
+# Restart a service
+docker-compose restart web
+
+# Rebuild after code changes
+docker-compose build web
+docker-compose up -d web
 ```
 
 ### Option 3: VPS/Cloud Server

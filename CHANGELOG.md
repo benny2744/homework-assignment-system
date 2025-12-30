@@ -5,6 +5,25 @@ All notable changes to the Homework Assignment System are documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2024-12-XX - Docker Deployment & Infrastructure
+
+### 🐳 **Docker Deployment System**
+- **Complete Docker Compose Setup**: Production-ready multi-service deployment configuration
+- **Nginx Gateway**: Single-origin entrypoint with reverse proxy to Next.js application
+- **Automated Migrations**: Separate migration service runs database schema updates before web startup
+- **Multi-Stage Dockerfile**: Optimized build process with separate stages for dependencies, build, and runtime
+- **Database Health Checks**: Automatic health monitoring for PostgreSQL service
+- **Adminer Integration**: Built-in database administration UI for easy database management
+- **Subpath Deployment Support**: Configurable base path for deployment under subdirectories
+- **Volume Persistence**: Database data persisted across container restarts
+- **Network Isolation**: Secure network configuration for all services
+
+### 🔧 **Infrastructure Improvements**
+- **Base Path Support**: Added `base-path.ts` utility for subpath deployment scenarios
+- **Standalone Build**: Next.js configured for standalone output mode for optimal Docker deployment
+- **Port Management**: Organized port allocation (4170-4173) for all services
+- **Environment Configuration**: Flexible environment variable management for Docker deployments
+
 ## [1.1.0] - 2024-09-16 - Feature Enhancement & Bug Fixes
 
 ### 🚀 **Major Improvements**

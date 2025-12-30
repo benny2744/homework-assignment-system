@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateTeacher } from '@/lib/auth';
 import { createSession } from '@/lib/session';
 
+function isHttpsRequest(request: NextRequest): boolean {
+  const xfProto = request.headers.get('x-forwarded-proto');
+  if (xfProto) return xfProto.split(',')[0].trim().toLowerCase() === 'https';
+  return request.nextUrl.protocol === 'https:';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { username, password } = await request.json();
@@ -36,9 +42,11 @@ export async function POST(request: NextRequest) {
 
     response.cookies.set('session-token', sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      // Don't set Secure on plain HTTP (otherwise browsers won't persist it and you'll get login loops).
+      secure: isHttpsRequest(request),
       sameSite: 'lax',
       maxAge: 7200, // 2 hours
+      path: '/',
     });
 
     return response;

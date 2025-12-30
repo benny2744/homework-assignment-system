@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { withBasePath } from '@/lib/base-path';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,7 +36,7 @@ export default function CreateAssignmentPage() {
     }
 
     try {
-      const response = await fetch('/api/assignments', {
+      const response = await fetch(withBasePath('/api/assignments'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

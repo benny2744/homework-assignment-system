@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,18 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { 
-  BookOpen, 
-  Plus, 
-  Users, 
-  Download, 
-  Play, 
-  Pause, 
+import {
+  BookOpen,
+  Plus,
+  Users,
+  Download,
+  Play,
+  Pause,
   Trash2,
   LogOut,
   AlertCircle,
   Clock,
-  CheckCircle2
+  CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -43,22 +42,24 @@ interface Assignment {
   }>;
 }
 
-export default function TeacherDashboardPage() {
+export default function TeacherDashboardClient() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const router = useRouter();
 
-  const activeSessionsCount = assignments.filter(a => a.status === 'active').length;
+  const activeSessionsCount = assignments.filter((a) => a.status === 'active').length;
 
   useEffect(() => {
     fetchAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAssignments = async () => {
     try {
       const response = await fetch(withBasePath('/api/assignments'));
       if (response.status === 401) {
+        // Session expired; send user back to login.
         router.push('/teacher/login');
         return;
       }
@@ -68,7 +69,7 @@ export default function TeacherDashboardPage() {
       } else {
         setError(data.error || 'Failed to load assignments');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load assignments');
     } finally {
       setLoading(false);
@@ -99,13 +100,17 @@ export default function TeacherDashboardPage() {
       } else {
         setError(data.error || `Failed to ${action} assignment`);
       }
-    } catch (err) {
+    } catch {
       setError('Operation failed');
     }
   };
 
   const deleteAssignment = async (assignmentId: string) => {
-    if (!confirm('Are you sure you want to delete this assignment? All student work will be permanently lost.')) {
+    if (
+      !confirm(
+        'Are you sure you want to delete this assignment? All student work will be permanently lost.'
+      )
+    ) {
       return;
     }
 
@@ -120,7 +125,7 @@ export default function TeacherDashboardPage() {
         const data = await response.json();
         setError(data.error || 'Failed to delete assignment');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to delete assignment');
     }
   };
@@ -148,7 +153,7 @@ export default function TeacherDashboardPage() {
               <h1 className="text-xl font-semibold">Teacher Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <Badge variant={activeSessionsCount >= 3 ? "destructive" : "secondary"}>
+              <Badge variant={activeSessionsCount >= 3 ? 'destructive' : 'secondary'}>
                 Sessions: {activeSessionsCount}/3
               </Badge>
               <Button variant="outline" onClick={handleLogout}>
@@ -176,7 +181,7 @@ export default function TeacherDashboardPage() {
               <Button disabled={activeSessionsCount >= 3}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Assignment
-                {activeSessionsCount >= 3 && " (Limit Reached)"}
+                {activeSessionsCount >= 3 && ' (Limit Reached)'}
               </Button>
             </Link>
           </div>
@@ -185,7 +190,8 @@ export default function TeacherDashboardPage() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                You've reached the maximum of 3 active assignments. Close an existing assignment to create a new one.
+                You&apos;ve reached the maximum of 3 active assignments. Close an existing assignment
+                to create a new one.
               </AlertDescription>
             </Alert>
           )}
@@ -218,88 +224,67 @@ export default function TeacherDashboardPage() {
                         <span className="font-mono bg-gray-100 px-2 py-1 rounded">
                           {assignment.assignment_code}
                         </span>
-                        <Badge variant={
-                          assignment.status === 'active' ? 'default' :
-                          assignment.status === 'closed' ? 'secondary' : 'outline'
-                        }>
-                          {assignment.status}
-                        </Badge>
-                        <span className="flex items-center">
+                        <div className="flex items-center">
                           <Users className="h-4 w-4 mr-1" />
                           {assignment.student_count}/{assignment.max_students}
-                        </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {assignment.status === 'active' ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleAssignmentStatus(assignment.id, assignment.status)}
-                        >
-                          <Pause className="h-4 w-4 mr-2" />
-                          Close
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleAssignmentStatus(assignment.id, assignment.status)}
-                          disabled={activeSessionsCount >= 3}
-                        >
-                          <Play className="h-4 w-4 mr-2" />
-                          Reopen
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadSubmissions(assignment.id)}
-                        disabled={assignment.student_work.length === 0}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteAssignment(assignment.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Badge variant={assignment.status === 'active' ? 'default' : 'secondary'}>
+                      {assignment.status.toUpperCase()}
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {assignment.student_work.length > 0 ? (
-                    <div>
-                      <h4 className="font-medium mb-3">Student Progress:</h4>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {assignment.student_work.map((work) => (
-                          <div key={work.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                            <div>
-                              <div className="font-medium text-sm">{work.student_name}</div>
-                              <div className="text-xs text-gray-500">{work.word_count} words</div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {work.status === 'submitted' ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <Clock className="h-4 w-4 text-yellow-600" />
-                              )}
-                              <Badge variant={work.status === 'submitted' ? 'default' : 'secondary'} className="text-xs">
-                                {work.status}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleAssignmentStatus(assignment.id, assignment.status)}
+                    >
+                      {assignment.status === 'active' ? (
+                        <>
+                          <Pause className="h-4 w-4 mr-1" />
+                          Close
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 mr-1" />
+                          Reopen
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadSubmissions(assignment.id, 'bulk')}
+                      disabled={assignment.student_work.length === 0}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
+
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => deleteAssignment(assignment.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-2">
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Created: {new Date(assignment.created_at).toLocaleString()}
                     </div>
-                  ) : (
-                    <div className="text-center py-6 text-gray-500">
-                      No student submissions yet
+                    <div className="flex items-center">
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Submissions: {assignment.student_work.length}
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -309,3 +294,6 @@ export default function TeacherDashboardPage() {
     </div>
   );
 }
+
+
+

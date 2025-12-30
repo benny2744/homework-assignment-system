@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { withBasePath } from '@/lib/base-path';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -167,7 +168,7 @@ export default function StudentAssignment() {
 
     setAutoSaving(true);
     try {
-      const response = await fetch('/api/student/save', {
+      const response = await fetch(withBasePath('/api/student/save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -196,7 +197,7 @@ export default function StudentAssignment() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/student/save', {
+      const response = await fetch(withBasePath('/api/student/save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -236,7 +237,7 @@ export default function StudentAssignment() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/student/submit', {
+      const response = await fetch(withBasePath('/api/student/submit'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

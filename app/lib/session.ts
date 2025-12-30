@@ -3,7 +3,14 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { Teacher } from './auth';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'fallback-secret-key';
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    // Important: do not throw at module import time (Next.js may import route handlers at build).
+    throw new Error('SESSION_SECRET is required in production');
+  }
+  return secret || 'dev-fallback-secret-key';
+}
 
 export function createSession(teacher: Teacher): string {
   return jwt.sign(
@@ -11,7 +18,7 @@ export function createSession(teacher: Teacher): string {
       id: teacher.id,
       username: teacher.username,
     },
-    SESSION_SECRET,
+    getSessionSecret(),
     { expiresIn: '2h' }
   );
 }
@@ -25,7 +32,7 @@ export function getSession(): Teacher | null {
       return null;
     }
 
-    const decoded = jwt.verify(sessionToken, SESSION_SECRET) as any;
+    const decoded = jwt.verify(sessionToken, getSessionSecret()) as any;
     return {
       id: decoded.id,
       username: decoded.username,

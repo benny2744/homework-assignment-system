@@ -3,6 +3,7 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
+import { withBasePath } from '@/lib/base-path';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -61,7 +62,7 @@ export default function TeacherDashboard() {
 
   const fetchAssignments = async () => {
     try {
-      const response = await fetch('/api/assignments');
+      const response = await fetch(withBasePath('/api/assignments'));
       if (response.ok) {
         const data = await response.json();
         setAssignments(data.assignments);
@@ -85,7 +86,7 @@ export default function TeacherDashboard() {
     }
 
     try {
-      const response = await fetch('/api/assignments', {
+      const response = await fetch(withBasePath('/api/assignments'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newAssignment)
@@ -108,7 +109,7 @@ export default function TeacherDashboard() {
 
   const updateAssignmentStatus = async (id: number, status: string) => {
     try {
-      const response = await fetch(`/api/assignments/${id}`, {
+      const response = await fetch(withBasePath(`/api/assignments/${id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -129,7 +130,7 @@ export default function TeacherDashboard() {
     }
 
     try {
-      const response = await fetch(`/api/assignments/${id}`, { method: 'DELETE' });
+      const response = await fetch(withBasePath(`/api/assignments/${id}`), { method: 'DELETE' });
       if (response.ok) {
         fetchAssignments();
         setSuccess('Assignment deleted successfully');
@@ -140,7 +141,7 @@ export default function TeacherDashboard() {
   };
 
   const downloadSubmissions = (assignmentId: number, type: string = 'all') => {
-    window.open(`/api/assignments/${assignmentId}/download?type=${type}`, '_blank');
+    window.open(withBasePath(`/api/assignments/${assignmentId}/download?type=${type}`), '_blank');
   };
 
   if (loading) {

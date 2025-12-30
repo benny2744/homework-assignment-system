@@ -32,15 +32,44 @@ The Homework Assignment System enables teachers to create, distribute, and colle
 ## 🚀 Quick Start
 
 ### Prerequisites
+
+**Option A: Docker Deployment (Recommended)**
+- Docker Engine 20.10+
+- Docker Compose 2.0+
+
+**Option B: Local Development**
 - Node.js 18+ 
 - PostgreSQL database
 - Yarn package manager
 
 ### Installation
 
+#### Docker Deployment (Easiest)
+
+1. **Start All Services**
+   ```bash
+   cd homework-assignment-system
+   docker-compose up -d
+   ```
+
+2. **Access Application**
+   - Main site: `http://localhost:4170`
+   - Teacher login: `http://localhost:4170/teacher/login`
+   - Student access: `http://localhost:4170/student`
+   - Database UI: `http://localhost:4173`
+
+3. **Seed Database (Optional)**
+   ```bash
+   docker-compose exec web yarn prisma db seed
+   ```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed Docker deployment instructions.
+
+#### Local Development
+
 1. **Clone and Setup**
    ```bash
-   cd homework_assignment_system/app
+   cd homework-assignment-system/app
    yarn install
    ```
 
